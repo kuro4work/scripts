@@ -1,0 +1,11 @@
+#! /bin/bash
+
+readarray -td ' ' roots <<< $(cat $1 | yq '.data.train_data.dataset.data_path.[].root')
+paths=$(cat $1 | yq '.data.train_data.dataset.data_path.[].path')
+num=$(echo ${roots} | awk '{print NF}')
+echo $num
+
+for ((i=0;i<$num;i++)); do
+    echo ${roots[$i]}
+    echo ${paths[$i]}
+done

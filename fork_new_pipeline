@@ -1,0 +1,35 @@
+#! /bin/bash
+
+if [[ $# -ne 2 || ! -d $1 ]]; then
+    echo 'Usage: fork_new_pipeline <PREV_NAME> <CURR_NAME>'
+    exit -1
+fi
+
+prev=$1
+curr=$2
+if [[ ! -e ${curr} ]]; then
+    mkdir ${curr};
+elif [[ -f ${curr} ]]; then
+    echo "Expect ${curr} a directory, but got a file."
+fi
+cp ${prev}/exp.yaml ${curr}/exp.yaml
+cp ${prev}/scheduler.json ${curr}/scheduler.json
+cp ${prev}/custom_script ${curr}/custom_script
+if [[ -e ${prev}/.git ]]; then
+    cp -r ${prev}/.git ${curr}
+fi
+if [[ -e ${prev}/customized ]]; then
+    cp -r ${prev}/customized ${curr}
+fi
+if [[ -e ${prev}/scheduler_train.json ]]; then
+    name="$(echo ${curr}|sed 's/_//g')-train"
+    gpu=$(jq '.train.GPU' ${curr}/scheduler.json)
+    worker=$(jq '.train.workers' ${curr}/scheduler.json)
+
+    pip_cmd='pip install SMore_core==2.5.1 -i http://10.17.0.197:8181 --trusted-host 10.17.0.197; pip install SMore_Seg==2.4.0 -i http://10.17.0.197:8181 --trusted-host 10.17.0.197'
+    train_cmd="sm train $(pwd)/${curr} -f -g ${gpu} -w ${worker}"
+    deploy_cmd="sm deploy $(pwd)/${curr} -i -1 --no_notify"
+    extra_cmd="cd $(pwd)/${curr}; bash custom_script"
+    comm="${pip_cmd}; ${train_cmd}; ${deploy_cmd}; ${extra_cmd}"
+    (cat ${prev}/scheduler_train.json | jq --arg name "${name}" '.name = $name' | jq --arg comm "${comm}" '.Command = $comm' | jq --arg gpu "${gpu}" '.GPU = ($gpu | tonumber)' > ${curr}/scheduler_train.json)
+fi

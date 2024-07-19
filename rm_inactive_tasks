@@ -1,0 +1,15 @@
+#!/bin/bash
+schedctl list | awk -F'|' '
+BEGIN {found=0} {
+  gsub(/ /, "", $3); gsub(/ /, "", $4);
+  if ($4 == "Completed" || $4 == "Error" || $4 == "Failed") {
+    print "已删除" $4 "状态的任务：" $3;
+    system("schedctl delete " $3);
+    found=1
+  }
+} END {
+    if (found == 0) {
+      print "没有已完成或错误的任务";
+    }
+  }
+'

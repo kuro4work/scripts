@@ -1,0 +1,25 @@
+#! /bin/bash
+ROLE='train'
+MAX_USED_CARD_NUM=4
+while [ $# -gt 0 ]; do
+    key="$1"
+    case $key in
+        -r|--role)
+        ROLE="$2"
+        shift
+        shift
+        ;;
+        -n|--max-used-card-num)
+        MAX_USED_CARD_NUM="$2"
+        shift
+        shift
+        ;;
+        *)
+        # unknown option
+        POSITIONAL+=("$1") # save it in an array for later
+        shift # past argument
+    esac
+done
+schedctl node list | awk \
+    -v role="${ROLE}" -v max_card="${MAX_USED_CARD_NUM}" -F"|" \
+    '$3 ~ role && $4 ~ "Ready" && $7 ~ "[0-"max_card"]/8" {print}'

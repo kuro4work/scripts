@@ -1,0 +1,98 @@
+#! /bin/bash
+set -euo pipefail
+
+exp_dp=$(pwd)/exp/
+data_dp=$(pwd)/data/
+
+
+custom_prefix=''
+while [ $# -gt 0 ]; do
+    key="$1"
+    case $key in
+        -p|--prefix)
+        custom_prefix="$2"
+        shift
+        shift
+        ;;
+        *)
+        # unknown option
+        POSITIONAL+=("$1") # save it in an array for later
+        shift # past argument
+    esac
+done
+
+error_handler() {
+    local err_no=$?
+    local line_no=$(caller | awk '{print $1}')
+    local line_content=$(sed -n "${line_no}p" "$0")
+
+    echo "脚本在第 ${line_no} 行遇到错误，退出状态码: ${err_no}"
+    echo "出错内容: $line_content"
+}
+trap error_handler ERR
+
+# assume newest modified dir named like a_b_x_y_<date>[-<variant>]
+prev_exp=$(ls ${exp_dp} -t | rg -v '(old|pth)' | head -n 1)
+prev_prefix=$(echo ${prev_exp} | awk -F'_' '{for (i=1; i<NF; i++) printf "%s_", $i}' | sed 's/_$//'; echo)
+prev_suffix=$(echo $prev_exp | awk -F'_' '{print $NF}')
+prev_date=$(echo $prev_suffix | awk -F'-' '{print $1}')
+curr_date=$(date +"%m%d")
+if [[ -n ${custom_prefix} ]]; then
+    curr_exp=${custom_prefix}_${curr_date}
+else
+    curr_exp=${prev_prefix}_${curr_date}
+fi
+
+if [[ ! ${prev_date} =~ ^[0-9]{4}$ ]]; then
+    echo 获取上次实验日期出错：${prev_date}
+    exit -1
+fi
+
+echo "Author: shuhan.zhang"
+echo "本脚本每步操作均可视作幂等，如不幂等请问问作者怎么肥西"
+echo "======================================================================="
+echo "实验目录：$exp_dp"
+echo "数据目录：$data_dp"
+echo "======================================================================="
+if [[ ! -e ${data_dp}/gen_list.py ]]; then
+    echo '`gen_list.py`未配置，请提前准备并将其放入数据目录'
+    exit 0
+fi
+echo "1. 生成训练数据列表：${curr_date} ..."
+(cd ${data_dp}; python gen_list.py ${curr_date})
+echo "2. fork最近一次实验配置${prev_exp} -> ${curr_exp}..."
+(cd ${exp_dp}; fork_new_pipeline ${prev_exp} ${curr_exp} 2> /dev/null)
+echo "3. 修改数据列表为(train|val)_${curr_date}.txt ..."
+(cd ${exp_dp}; sed -i "s#train_.*.txt#train_${curr_date}.txt#g" ${curr_exp}/exp.yaml)
+(cd ${exp_dp}; sed -i "s#val_.*.txt#val_${curr_date}.txt#g" ${curr_exp}/exp.yaml)
+echo "4. 启动训练任务：$(echo ${curr_exp} | sed 's/_//g')-train ..."
+job_name=$(echo ${curr_exp} | sed 's/_//g')-train
+if [[ -n $(schedctl list | rg "\s+${job_name}\s+") ]]; then
+    read -p "${job_name}已存在，是否删除并重开？(y/N)" answer
+    answer=${answer:-n}
+    case $answer in
+        [yY])
+            schedctl delete ${job_name}
+            n=0
+            while [[ ! -n $(schedctl list | rg ${job_name}) ]]; do
+                n=$((n + 1))
+                dots=$(($((n % 3)) + 1))
+                echo -ne "\r等待任务删除"
+                for ((i = 0; i < dots; i++)); do echo -n '.'; done
+                for ((i = dots; i < 3; i++)); do echo -n ' '; done
+            sleep 1
+            done
+            echo
+            (cd ${exp_dp}/${curr_exp}; rm -r output progress result model .status.json)
+            ;;
+        [nN])
+            echo "保留当前实验，运行结束。"
+            exit 0
+            ;;
+    esac
+fi
+if [[ -e ${exp_dp}/${curr_exp}/scheduler_train.json ]]; then
+    (cd ${exp_dp}/${curr_exp}; schedctl create -f scheduler_train.json)
+else
+    (cd ${exp_dp}; sm run train ${curr_exp} --job_name ${job_name} 2> /dev/null)
+fi
