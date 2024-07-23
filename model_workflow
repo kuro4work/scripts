@@ -6,11 +6,17 @@ data_dp=$(pwd)/data/
 
 
 custom_prefix=''
+variant=''
 while [ $# -gt 0 ]; do
     key="$1"
     case $key in
         -p|--prefix)
         custom_prefix="$2"
+        shift
+        shift
+        ;;
+        -v|--variant)
+        variant="$2"
         shift
         shift
         ;;
@@ -42,6 +48,12 @@ if [[ -n ${custom_prefix} ]]; then
 else
     curr_exp=${prev_prefix}_${curr_date}
 fi
+if [[ -n ${variant} ]]; then
+    curr_exp+="-${variant}"
+    datalist_name="${curr_date}-${variant}"
+else
+    datalist_name="${curr_date}"
+fi
 
 if [[ ! ${prev_date} =~ ^[0-9]{4}$ ]]; then
     echo 获取上次实验日期出错：${prev_date}
@@ -58,13 +70,13 @@ if [[ ! -e ${data_dp}/gen_list.py ]]; then
     echo '`gen_list.py`未配置，请提前准备并将其放入数据目录'
     exit 0
 fi
-echo "1. 生成训练数据列表：${curr_date} ..."
-(cd ${data_dp}; python gen_list.py ${curr_date})
+echo "1. 生成训练数据列表：${datalist_name} ..."
+(cd ${data_dp}; python gen_list.py ${datalist_name})
 echo "2. fork最近一次实验配置${prev_exp} -> ${curr_exp}..."
 (cd ${exp_dp}; fork_new_pipeline ${prev_exp} ${curr_exp} 2> /dev/null)
-echo "3. 修改数据列表为(train|val)_${curr_date}.txt ..."
-(cd ${exp_dp}; sed -i "s#train_.*.txt#train_${curr_date}.txt#g" ${curr_exp}/exp.yaml)
-(cd ${exp_dp}; sed -i "s#val_.*.txt#val_${curr_date}.txt#g" ${curr_exp}/exp.yaml)
+echo "3. 修改数据列表为(train|val)_${datalist_name}.txt ..."
+(cd ${exp_dp}; sed -i "s#train_.*.txt#train_${datalist_name}.txt#g" ${curr_exp}/exp.yaml)
+(cd ${exp_dp}; sed -i "s#val_.*.txt#val_${datalist_name}.txt#g" ${curr_exp}/exp.yaml)
 echo "4. 启动训练任务：$(echo ${curr_exp} | sed 's/_//g')-train ..."
 job_name=$(echo ${curr_exp} | sed 's/_//g')-train
 if [[ -n $(schedctl list | rg "\s+${job_name}\s+") ]]; then
