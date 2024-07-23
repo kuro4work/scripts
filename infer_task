@@ -23,6 +23,13 @@ _infer_task() {
     model_rlt_fp="project/resources/models/${model_name}.onnx"
     json_fp="${SDK_DP}/project/resources/sdk_settings/${MODEL_PREFIX}.json"
 
+    while [[ -e ${model_rlt_fp} ]]; do
+        old=$(echo $model_name | awk -F'-' '{print $1}'| awk -F'_' '{print $NF}'|awk -F'v' '{print $NF}')
+        new=$((old + 1))
+        model_name=$(echo ${model_name} | sed "s/v${old}/v${new}/"
+        model_rlt_fp="project/resources/models/${model_name}.onnx"
+    done
+
     echo "1. 拷贝模型：${model_name}"
     cp deploy/-1.onnx "${SDK_DP}/${model_rlt_fp}"
 
