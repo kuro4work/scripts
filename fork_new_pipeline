@@ -31,5 +31,13 @@ if [[ -e ${prev}/scheduler_train.json ]]; then
     deploy_cmd="sm deploy $(pwd)/${curr} -i -1 --no_notify"
     extra_cmd="cd $(pwd)/${curr}; bash custom_script"
     comm="${pip_cmd}; ${train_cmd}; ${deploy_cmd}; ${extra_cmd}"
-    (cat ${prev}/scheduler_train.json | jq --arg name "${name}" '.name = $name' | jq --arg comm "${comm}" '.Command = $comm' | jq --arg gpu "${gpu}" '.GPU = ($gpu | tonumber)' > ${curr}/scheduler_train.json)
+    cat ${prev}/scheduler_train.json |\
+        jq --arg name "${name}" '.name = $name' |\
+        jq --arg comm "${comm}" '.Command = $comm' |\
+        jq --arg gpu "${gpu}" '.GPU = ($gpu | tonumber)' \
+        > ${curr}/tmp.json
+    if [[ -e ${curr}/scheduler_train.json ]]; then
+        rm ${curr}/scheduler_train.json
+    fi
+    mv ${curr}/tmp.json ${curr}/scheduler_train.json
 fi
