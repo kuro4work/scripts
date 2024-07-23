@@ -74,7 +74,7 @@ if [[ -n $(schedctl list | rg "\s+${job_name}\s+") ]]; then
         [yY])
             schedctl delete ${job_name}
             n=0
-            while [[ ! -n $(schedctl list | rg ${job_name}) ]]; do
+            while [[ -n $(schedctl list | rg ${job_name}) ]]; do
                 n=$((n + 1))
                 dots=$(($((n % 3)) + 1))
                 echo -ne "\r等待任务删除"
