@@ -20,6 +20,7 @@ while [ $# -gt 0 ]; do
         shift # past argument
     esac
 done
+schedctl  node list | rg -C1 --color=never NAME
 schedctl node list | awk \
     -v role="${ROLE}" -v max_card="${MAX_USED_CARD_NUM}" -F"|" \
     '$3 ~ role && $4 ~ "Ready" && $7 ~ "[0-"max_card"]/8" {print}'
