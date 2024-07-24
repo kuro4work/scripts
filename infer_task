@@ -1,58 +1,54 @@
 #! /bin/bash
-_infer_task() {
-    MODEL_PREFIX=$1
-    SDK_DP=$2
 
-    export PATH=$PATH:$HOME/opt/bin
-    # assume newest modified dir named like a_b_x_y_<date>[-<variant>]
-    curr_exp=$(pwd | awk -F'/' '{print $NF}')
-    variant=$(echo curr_exp | awk -F'-' '{print $2}')
-    version=$(date +"%m%d")
-    # version+1 if time exceeds 8 p.m.
-    if [[ TZ=CST-8 date +'%H' -lt 20 ]]; then
-        version=$(TZ=CST-8 date +'%m%d')
-    else
-        version=(( $(TZ=CST-8 date +'%m%d') + 1 ))
-    fi
-    if [[ -n ${variant} ]]; then
-        model_name="${MODEL_PREFIX}_${version}v1-${variant}"
-    else
-        model_name="${MODEL_PREFIX}_${version}v1"
-    fi
-    model_hash=$(md5sum -b deploy/-1.onnx | awk '{print $1}')
+MODEL_PREFIX=$1
+SDK_DP=$2
+
+export PATH=$PATH:$HOME/opt/bin
+# assume newest modified dir named like a_b_x_y_<date>[-<variant>]
+curr_exp=$(pwd | awk -F'/' '{print $NF}')
+variant=$(echo curr_exp | awk -F'-' '{print $2}')
+version=$(date +"%m%d")
+# version+1 if time exceeds 8 p.m.
+if [[ $(TZ=CST-8 date +'%H' | sed 's/^0*//') -lt 20 ]]; then
+    version=$(TZ=CST-8 date +'%m%d')
+else
+    version=$(next_date)
+fi
+if [[ -n ${variant} ]]; then
+    model_name="${MODEL_PREFIX}_${version}v1-${variant}"
+else
+    model_name="${MODEL_PREFIX}_${version}v1"
+fi
+model_hash=$(md5sum -b deploy/-1.onnx | awk '{print $1}')
+model_rlt_fp="project/resources/models/${model_name}.onnx"
+json_fp="${SDK_DP}/project/resources/sdk_settings/${MODEL_PREFIX}.json"
+
+while [[ -e ${model_rlt_fp} ]]; do
+    old=$(echo $model_name | awk -F'-' '{print $1}'| awk -F'_' '{print $NF}'|awk -F'v' '{print $NF}')
+    new=$((old + 1))
+    model_name=$(echo ${model_name} | sed "s/v${old}/v${new}/")
     model_rlt_fp="project/resources/models/${model_name}.onnx"
-    json_fp="${SDK_DP}/project/resources/sdk_settings/${MODEL_PREFIX}.json"
+done
 
-    while [[ -e ${model_rlt_fp} ]]; do
-        old=$(echo $model_name | awk -F'-' '{print $1}'| awk -F'_' '{print $NF}'|awk -F'v' '{print $NF}')
-        new=$((old + 1))
-        model_name=$(echo ${model_name} | sed "s/v${old}/v${new}/"
-        model_rlt_fp="project/resources/models/${model_name}.onnx"
-    done
+echo "1. 拷贝模型：${model_name}"
+cp deploy/-1.onnx "${SDK_DP}/${model_rlt_fp}"
 
-    echo "1. 拷贝模型：${model_name}"
-    cp deploy/-1.onnx "${SDK_DP}/${model_rlt_fp}"
+echo "2. 更新配置文件：${MODEL_PREFIX}.json"
+cat "${json_fp}" |\
+    jq --arg model_path "${model_rlt_fp}" --arg md5 "${model_hash}" \
+        '.xrack_cfg.xrack_module.engine_cfg.model_path=$model_path | .xrack_cfg.xrack_module.engine_cfg.md5=$md5' \
+    > tmp.json &&
+cp tmp.json "${json_fp}" &&
+rm tmp.json
 
-    echo "2. 更新配置文件：${MODEL_PREFIX}.json"
-    cat "${json_fp}" |\
-        jq --arg model_path "${model_rlt_fp}" --arg md5 "${model_hash}" \
-            '.xrack_cfg.xrack_module.engine_cfg.model_path=$model_path | .xrack_cfg.xrack_module.engine_cfg.md5=$md5' \
-        > tmp.json &&
-    cp tmp.json "${json_fp}" &&
-    rm tmp.json
+echo "3. 运行前向测试"
+pip install -r "${SDK_DP}/requirements.txt" -i http://10.17.0.197:8181 --trusted-host 10.17.0.197 --user
+(cd "${SDK_DP}"; python offline_entrance.py -i downloads/src/test/${MODEL_PREFIX} -o downloads/dst/test_${model_name} -s 1)
+rm -r "${SDK_DP}/downloads/dst/test_${model_name}/result_images"
 
-    echo "3. 运行前向测试"
-    pip install -r "${SDK_DP}/requirements.txt" -i http://10.17.0.197:8181 --trusted-host 10.17.0.197 --user
-    (cd "${SDK_DP}"; python offline_entrance.py -i downloads/src/test/${MODEL_PREFIX} -o downloads/dst/test_${model_name} -s 1)
-    rm -r "${SDK_DP}/downloads/dst/test_${model_name}/result_images"
-
-    echo "4. 移动老旧模型文件"
-    if [[ ! -e ${SDK_DP}/project/resources/models/trash ]]; then
-        mkdir "${SDK_DP}/project/resources/models/trash"
-    fi
-    newest=$(jq -r '.xrack_cfg.xrack_module.engine_cfg.model_path' $SDK_DP/project/resources/sdk_settings/Pipeline* | awk -F'/' '{print $(NF)}' | awk -F'.' '{print $1}'|tr '\n' '|'|sed 's/|$//')
-    (cd "${SDK_DP}/project/resources/models" && find . -maxdepth 1 -name '*.onnx' -atime +7 | rg -v $newest | xargs -i mv {} trash/)
-
-}
-
-_infer_task "$1" "$2"
+echo "4. 移动老旧模型文件"
+if [[ ! -e ${SDK_DP}/project/resources/models/trash ]]; then
+    mkdir "${SDK_DP}/project/resources/models/trash"
+fi
+newest=$(jq -r '.xrack_cfg.xrack_module.engine_cfg.model_path' $SDK_DP/project/resources/sdk_settings/Pipeline* | awk -F'/' '{print $(NF)}' | awk -F'.' '{print $1}'|tr '\n' '|'|sed 's/|$//')
+(cd "${SDK_DP}/project/resources/models" && find . -maxdepth 1 -name '*.onnx' -atime +7 | rg -v $newest | xargs -i mv {} trash/)
