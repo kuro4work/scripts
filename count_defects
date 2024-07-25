@@ -1,11 +1,25 @@
 #! /bin/bash
+if [[ $# -ne 1 ]]; then
+    echo 'Usage: count_defects <PATH_TO_"exp.yaml">'
+    exit 1
+fi
 
-readarray -td ' ' roots <<< $(cat $1 | yq '.data.train_data.dataset.data_path.[].root')
-paths=$(cat $1 | yq '.data.train_data.dataset.data_path.[].path')
-num=$(echo ${roots} | awk '{print NF}')
-echo $num
+readarray -t roots <<< "$(yq -r '.data.train_data.dataset.data_path.[].root' "$1")"
+readarray -t paths <<< "$(yq -r '.data.train_data.dataset.data_path.[].path' "$1")"
+num="${#roots[@]}"
+if [[ $num -gt 1 ]]; then
+    prefix="$num trainlist"
+else
+    prefix="$num trainlists"
+fi
+echo "$prefix: ${paths[*]}"
 
-for ((i=0;i<$num;i++)); do
-    echo ${roots[$i]}
-    echo ${paths[$i]}
+anns=""
+for ((i=0; i<num; i++)); do
+    root="${roots[i]}"
+    json_list=${paths[i]}
+    anns+=" "
+    anns+=$(awk -F',' -v root="$root" '{print root "/" $2}' "$json_list")
 done
+
+echo "$anns" | xargs cat | jq '.shapes.[].label' | sort | uniq -c
