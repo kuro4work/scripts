@@ -29,8 +29,10 @@ done
 
 error_handler() {
     local err_no=$?
-    local line_no=$(caller | awk '{print $1}')
-    local line_content=$(sed -n "${line_no}p" "$0")
+    local line_no
+    line_no=$(caller | awk '{print $1}')
+    local line_content
+    line_content=$(sed -n "${line_no}p" "$0")
 
     echo "脚本在第 ${line_no} 行遇到错误，退出状态码: ${err_no}"
     echo "出错内容: $line_content"
@@ -38,26 +40,27 @@ error_handler() {
 trap error_handler ERR
 
 # assume newest modified dir named like a_b_x_y_<date>[-<variant>]
-prev_exp=$(ls ${exp_dp} -t | rg -v '(old|pth)' | head -n 1)
-prev_prefix=$(echo ${prev_exp} | awk -F'_' '{for (i=1; i<NF; i++) printf "%s_", $i}' | sed 's/_$//'; echo)
-prev_suffix=$(echo $prev_exp | awk -F'_' '{print $NF}')
-prev_date=$(echo $prev_suffix | awk -F'-' '{print $1}')
+# shellcheck disable=SC2012
+prev_exp=$(ls "$exp_dp" -t | rg -v '(old|pth)' | head -n 1)
+prev_prefix=$(echo "$prev_exp" | awk -F'_' '{for (i=1; i<NF; i++) printf "%s_", $i}' | sed 's/_$//'; echo)
+prev_suffix=$(echo "$prev_exp" | awk -F'_' '{print $NF}')
+prev_date=$(echo "$prev_suffix" | awk -F'-' '{print $1}')
 curr_date=$(date +"%m%d")
 if [[ -n ${custom_prefix} ]]; then
-    curr_exp=${custom_prefix}_${curr_date}
+    curr_exp="$custom_prefix"_"$curr_date"
 else
-    curr_exp=${prev_prefix}_${curr_date}
+    curr_exp="$prev_prefix"_"$curr_date"
 fi
 if [[ -n ${variant} ]]; then
     curr_exp+="-${variant}"
-    datalist_name="${curr_date}-${variant}"
+    datalist_name="$curr_date"-"$variant"
 else
-    datalist_name="${curr_date}"
+    datalist_name="$curr_date"
 fi
 
 if [[ ! ${prev_date} =~ ^[0-9]{4}$ ]]; then
-    echo 获取上次实验日期出错：${prev_date}
-    exit -1
+    echo 获取上次实验日期出错："$prev_date"
+    exit 1
 fi
 
 echo "Author: shuhan.zhang"
@@ -67,26 +70,26 @@ echo "实验目录：$exp_dp"
 echo "数据目录：$data_dp"
 echo "======================================================================="
 if [[ ! -e ${data_dp}/gen_list.py ]]; then
-    echo '`gen_list.py`未配置，请提前准备并将其放入数据目录'
+    echo "\`gen_list.py\`未配置，请提前准备并将其放入数据目录"
     exit 0
 fi
 echo "1. 生成训练数据列表：${datalist_name} ..."
-(cd ${data_dp}; python gen_list.py ${datalist_name})
+(cd "$data_dp"; python gen_list.py "$datalist_name")
 echo "2. fork最近一次实验配置${prev_exp} -> ${curr_exp}..."
-(cd ${exp_dp}; fork_new_pipeline ${prev_exp} ${curr_exp} 2> /dev/null)
+(cd "$exp_dp"; fork_new_pipeline "$prev_exp" "$curr_exp" 2> /dev/null)
 echo "3. 修改数据列表为(train|val)_${datalist_name}.txt ..."
-(cd ${exp_dp}; sed -i "s#train_.*.txt#train_${datalist_name}.txt#g" ${curr_exp}/exp.yaml)
-(cd ${exp_dp}; sed -i "s#val_.*.txt#val_${datalist_name}.txt#g" ${curr_exp}/exp.yaml)
-echo "4. 启动训练任务：$(echo ${curr_exp} | sed 's/_//g')-train ..."
-job_name=$(echo ${curr_exp} | sed 's/_//g')-train
+(cd "$exp_dp"; sed -i "s#train_.*.txt#train_${datalist_name}.txt#g" "$curr_exp"/exp.yaml)
+(cd "$exp_dp"; sed -i "s#val_.*.txt#val_${datalist_name}.txt#g" "$curr_exp"/exp.yaml)
+echo "4. 启动训练任务：${curr_exp//_/}-train ..."
+job_name="${curr_exp//_/}"-train
 if [[ -n $(schedctl list | rg "\s+${job_name}\s+") ]]; then
-    read -p "${job_name}已存在，是否删除并重开？(y/N)" answer
+    read -rp "${job_name}已存在，是否删除并重开？(y/N)" answer
     answer=${answer:-n}
     case $answer in
         [yY])
-            schedctl delete ${job_name}
+            schedctl delete "${job_name}"
             n=0
-            while [[ -n $(schedctl list | rg ${job_name}) ]]; do
+            while [[ -n $(schedctl list | rg "${job_name}") ]]; do
                 n=$((n + 1))
                 dots=$(($((n % 3)) + 1))
                 echo -ne "\r等待任务删除"
@@ -95,7 +98,7 @@ if [[ -n $(schedctl list | rg "\s+${job_name}\s+") ]]; then
             sleep 1
             done
             echo
-            (cd ${exp_dp}/${curr_exp}; rm -r output progress result model .status.json)
+            (cd "${exp_dp}"/"${curr_exp}"; rm -r output progress result model .status.json || true)
             ;;
         [nN])
             echo "保留当前实验，运行结束。"
@@ -104,7 +107,7 @@ if [[ -n $(schedctl list | rg "\s+${job_name}\s+") ]]; then
     esac
 fi
 if [[ -e ${exp_dp}/${curr_exp}/scheduler_train.json ]]; then
-    (cd ${exp_dp}/${curr_exp}; schedctl create -f scheduler_train.json)
+    (cd "${exp_dp}"/"${curr_exp}"; schedctl create -f scheduler_train.json)
 else
-    (cd ${exp_dp}; sm run train ${curr_exp} --job_name ${job_name} 2> /dev/null)
+    (cd "${exp_dp}"; sm run train "${curr_exp}" --job_name "${job_name}" 2> /dev/null)
 fi

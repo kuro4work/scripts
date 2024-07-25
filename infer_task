@@ -3,10 +3,10 @@
 MODEL_PREFIX=$1
 SDK_DP=$2
 
-export PATH=$PATH:$HOME/opt/bin
+export PATH=$PATH:$HOME/opt/bin:$HOME/.cargo/bin
 # assume newest modified dir named like a_b_x_y_<date>[-<variant>]
 curr_exp=$(pwd | awk -F'/' '{print $NF}')
-variant=$(echo curr_exp | awk -F'-' '{print $2}')
+variant=$(echo "$curr_exp" | awk -F'-' '{print $2}')
 version=$(date +"%m%d")
 # version+1 if time exceeds 8 p.m.
 if [[ $(TZ=CST-8 date +'%H' | sed 's/^0*//') -lt 20 ]]; then
@@ -24,9 +24,9 @@ model_rlt_fp="project/resources/models/${model_name}.onnx"
 json_fp="${SDK_DP}/project/resources/sdk_settings/${MODEL_PREFIX}.json"
 
 while [[ -e ${model_rlt_fp} ]]; do
-    old=$(echo $model_name | awk -F'-' '{print $1}'| awk -F'_' '{print $NF}'|awk -F'v' '{print $NF}')
+    old=$(echo "$model_name" | awk -F'-' '{print $1}'| awk -F'_' '{print $NF}'|awk -F'v' '{print $NF}')
     new=$((old + 1))
-    model_name=$(echo ${model_name} | sed "s/v${old}/v${new}/")
+    model_name="${model_name//v$old/v$new}"
     model_rlt_fp="project/resources/models/${model_name}.onnx"
 done
 
@@ -34,20 +34,21 @@ echo "1. 拷贝模型：${model_name}"
 cp deploy/-1.onnx "${SDK_DP}/${model_rlt_fp}"
 
 echo "2. 更新配置文件：${MODEL_PREFIX}.json"
+# shellcheck disable=SC2002
 cat "${json_fp}" |\
     jq --arg model_path "${model_rlt_fp}" --arg md5 "${model_hash}" \
         '.xrack_cfg.xrack_module.engine_cfg.model_path=$model_path | .xrack_cfg.xrack_module.engine_cfg.md5=$md5' \
     > tmp.json &&
-cp tmp.json "${json_fp}" &&
+cp tmp.json "$json_fp" &&
 rm tmp.json
 
 echo "3. 运行前向测试"
-(cd "${SDK_DP}" && "$HOME"/miniconda3/envs/b735/bin/python offline_entrance.py -i downloads/src/test/"${MODEL_PREFIX}" -o downloads/dst/test_"${model_name}" -s 1)
+(cd "$SDK_DP" && "$HOME"/miniconda3/envs/b735/bin/python offline_entrance.py -i downloads/src/test/"$MODEL_PREFIX" -o downloads/dst/test_"$model_name" -s 1)
 rm -r "${SDK_DP}/downloads/dst/test_${model_name}/result_images"
 
 echo "4. 移动老旧模型文件"
 if [[ ! -e ${SDK_DP}/project/resources/models/trash ]]; then
     mkdir "${SDK_DP}/project/resources/models/trash"
 fi
-newest=$(jq -r '.xrack_cfg.xrack_module.engine_cfg.model_path' $SDK_DP/project/resources/sdk_settings/Pipeline* | awk -F'/' '{print $(NF)}' | awk -F'.' '{print $1}'|tr '\n' '|'|sed 's/|$//')
-(cd "${SDK_DP}/project/resources/models" && find . -maxdepth 1 -name '*.onnx' -atime +7 | rg -v $newest | xargs -i mv {} trash/)
+newest=$(jq -r '.xrack_cfg.xrack_module.engine_cfg.model_path' "$SDK_DP"/project/resources/sdk_settings/Pipeline* | awk -F'/' '{print $(NF)}' | awk -F'.' '{print $1}'|tr '\n' '|'|sed 's/|$//')
+(cd "${SDK_DP}/project/resources/models" && find . -maxdepth 1 -name '*.onnx' -atime +7 | rg -v "$newest" | xargs -I{} mv {} trash/)

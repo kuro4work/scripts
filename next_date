@@ -8,8 +8,10 @@ else
 fi
 
 # 去掉前导零
-month=$(echo "${current_date:0:2}" | sed 's/^0*//')
-day=$(echo "${current_date:2:2}" | sed 's/^0*//')
+month=${current_date:0:2}
+month=${month#/0//}
+day=${current_date:2:2}
+day=${day#/0//}
 
 # 增加一天
 day=$((day + 1))
@@ -42,8 +44,8 @@ if [[ $month -gt 12 ]]; then
 fi
 
 # 格式化输出日期
-formatted_month=$(printf "%02d" $month)
-formatted_day=$(printf "%02d" $day)
+formatted_month=$(printf "%02d" "$month")
+formatted_day=$(printf "%02d" "$day")
 next_date="${formatted_month}${formatted_day}"
 
 echo "$next_date"

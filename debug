@@ -1,7 +1,7 @@
 #! /bin/bash
 _start_container() {
     row=$(schedctl list | grep debug)
-    schedctl create -f $HOME/debug.json
+    schedctl create -f "$HOME"/debug.json
     #schedctl create --name debug --image "harbor.smoa.cc/public/smore_core:v2.5.0.cu11" --gpu 1 --cmd "sleep 2h" --debug
     start=$(date +%s)
     while [[ $row != *"Running"* ]];do
@@ -26,14 +26,14 @@ curr=$(pwd)
 if [[ -n $row && $row != *"Running"* ]];then
     echo 'Debug container exists but not running, terminate first...'
     schedctl delete debug
-    while [ $(schedctl list | grep debug | wc -l) -gt 0 ];do
+    while [ "$(schedctl list | rg debug | wc -l)" -gt 0 ];do
         sleep 1
     done
-    _start_container $row
+    _start_container "$row"
 fi
 if [ -z "$row" ];then
     echo 'No debug container found, creating one...'
-    _start_container $row
+    _start_container "$row"
 fi
 
 port=$(sch describe debug | awk '/Ports/ {getline; print $NF}')
