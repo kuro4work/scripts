@@ -1,8 +1,15 @@
 #! /bin/bash
 _start_container() {
     row=$(schedctl list | grep debug)
-    schedctl create -f "$HOME"/debug.json
-    #schedctl create --name debug --image "harbor.smoa.cc/public/smore_core:v2.5.0.cu11" --gpu 1 --cmd "sleep 2h" --debug
+    #schedctl create -f "$HOME"/.debug.json
+    schedctl create \
+        --name debug \
+        --image "devops-docker.pkg.coding.smoa.cloud/smore-xrack/ci-environment/smore_xrack:v0.4.1.0.cu113" \
+        --gpu 1 \
+        --cmd "sleep 2h" \
+        --arch ampere \
+        --ports 8888 \
+        --debug
     start=$(date +%s)
     while [[ $row != *"Running"* ]];do
         row=$(schedctl list | grep debug | awk -F'|' '{print $4}')
