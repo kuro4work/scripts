@@ -42,8 +42,7 @@ cp tmp.json "${json_fp}" &&
 rm tmp.json
 
 echo "3. 运行前向测试"
-pip install -r "${SDK_DP}/requirements.txt" -i http://10.17.0.197:8181 --trusted-host 10.17.0.197 --user
-(cd "${SDK_DP}"; python offline_entrance.py -i downloads/src/test/${MODEL_PREFIX} -o downloads/dst/test_${model_name} -s 1)
+(cd "${SDK_DP}" && "$HOME"/miniconda3/envs/b735/bin/python offline_entrance.py -i downloads/src/test/"${MODEL_PREFIX}" -o downloads/dst/test_"${model_name}" -s 1)
 rm -r "${SDK_DP}/downloads/dst/test_${model_name}/result_images"
 
 echo "4. 移动老旧模型文件"
