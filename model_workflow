@@ -6,10 +6,15 @@ data_dp=$(pwd)/data/
 
 
 custom_prefix=''
+interactive=''
 variant=''
 while [ $# -gt 0 ]; do
     key="$1"
     case $key in
+        -i|--interactive)
+        interactive="1"
+        shift
+        ;;
         -p|--prefix)
         custom_prefix="$2"
         shift
@@ -80,6 +85,9 @@ echo "2. fork最近一次实验配置${prev_exp} -> ${curr_exp}..."
 echo "3. 修改数据列表为(train|val)_${datalist_name}.txt ..."
 (cd "$exp_dp"; sed -i "s#train_.*.txt#train_${datalist_name}.txt#g" "$curr_exp"/exp.yaml)
 (cd "$exp_dp"; sed -i "s#val_.*.txt#val_${datalist_name}.txt#g" "$curr_exp"/exp.yaml)
+if [[ -n $interactive ]]; then
+    (cd "$exp_dp"; vim "${curr_exp}/exp.yaml")
+fi
 echo "4. 启动训练任务：${curr_exp//_/}-train ..."
 job_name="${curr_exp//_/}"-train
 if [[ -n $(schedctl list | rg "\s+${job_name}\s+") ]]; then
