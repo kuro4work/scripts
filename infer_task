@@ -8,8 +8,8 @@ export PATH=$PATH:$HOME/opt/bin:$HOME/.cargo/bin
 curr_exp=$(pwd | awk -F'/' '{print $NF}')
 variant=$(echo "$curr_exp" | awk -F'-' '{print $2}')
 version=$(date +"%m%d")
-# version+1 if time exceeds 8 p.m.
-if [[ $(TZ=CST-8 date +'%H' | sed 's/^0*//') -lt 20 ]]; then
+# version+1 if time exceeds 6 p.m.
+if [[ $(TZ=CST-8 date +'%H' | sed 's/^0*//') -lt 18 ]]; then
     version=$(TZ=CST-8 date +'%m%d')
 else
     version=$(next_date)
