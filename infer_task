@@ -55,4 +55,4 @@ if [[ ! -e ${SDK_DP}/project/resources/models/trash ]]; then
     mkdir "${SDK_DP}/project/resources/models/trash"
 fi
 newest=$(jq -r '.xrack_cfg.xrack_module.engine_cfg.model_path' "$SDK_DP"/project/resources/sdk_settings/Pipeline* | awk -F'/' '{print $(NF)}' | awk -F'.' '{print $1}'|tr '\n' '|'|sed 's/|$//')
-(cd "${SDK_DP}/project/resources/models" && find . -maxdepth 1 -name '*.onnx' -atime +7 | rg -v "$newest" | xargs -I{} mv {} trash/)
+(cd "${SDK_DP}/project/resources/models" && find . -maxdepth 1 -name '*onnx*' -atime +7 | rg -v "$newest" | xargs -I{} mv {} trash/)
