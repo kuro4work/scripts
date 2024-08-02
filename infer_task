@@ -3,7 +3,7 @@
 MODEL_PREFIX=$1
 SDK_DP=$2
 
-export PATH=$PATH:$HOME/opt/bin:$HOME/.cargo/bin
+export PATH=$PATH:$HOME/opt/bin:$HOME/scripts:$HOME/.cargo/bin
 # assume newest modified dir named like a_b_x_y_<date>[-<variant>]
 curr_exp=$(pwd | awk -F'/' '{print $NF}')
 variant=$(echo "$curr_exp" | awk -F'-' '{print $2}')
