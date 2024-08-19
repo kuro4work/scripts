@@ -48,8 +48,7 @@ trap error_handler ERR
 # shellcheck disable=SC2012
 prev_exp=$(ls "$exp_dp" -t | rg -v '(old|pth)' | head -n 1)
 prev_prefix=$(echo "$prev_exp" | awk -F'_' '{for (i=1; i<NF; i++) printf "%s_", $i}' | sed 's/_$//'; echo)
-prev_suffix=$(echo "$prev_exp" | awk -F'_' '{print $NF}')
-prev_date=$(echo "$prev_suffix" | awk -F'-' '{print $1}')
+prev_date=$(echo "$prev_exp" | awk -F'_' '{print $NF}' | awk -F'-' '{print $1}')
 curr_date=$(date +"%m%d")
 if [[ -n ${custom_prefix} ]]; then
     curr_exp="$custom_prefix"_"$curr_date"
@@ -88,10 +87,11 @@ echo "3. 修改数据列表为(train|val)_${datalist_name}.txt ..."
 if [[ -n $interactive ]]; then
     (cd "$exp_dp"; vim "${curr_exp}/exp.yaml")
 fi
+(cd "$exp_dp"; count_defects "${curr_exp}/exp.yaml")
 echo "4. 启动训练任务：${curr_exp//_/}-train ..."
 job_name="${curr_exp//_/}"-train
 if [[ -n $(schedctl list | rg "\s+${job_name}\s+") ]]; then
-    read -rp "${job_name}已存在，是否删除并重开？(y/N)" answer
+    read -rp "${job_name}已存在，是否删除并重开？(y/N) " answer
     answer=${answer:-n}
     case $answer in
         [yY])

@@ -44,9 +44,9 @@ rm tmp.json
 
 echo "3. 运行前向测试"
 if [[ $(hostname) == 'debug' ]]; then
-    (cd "$SDK_DP" && "$HOME"/miniconda3/envs/b735/bin/python offline_entrance.py -i downloads/src/test/"$MODEL_PREFIX" -o downloads/dst/test_"$model_name" -s 1)
+    (cd "$SDK_DP" && "$HOME"/miniconda3/envs/b735/bin/python offline_entrance.py -i downloads/src/test/"$MODEL_PREFIX" -o downloads/dst/test_"$model_name" -s 1 -p all)
 else
-    (cd "$SDK_DP" && "$HOME"/miniconda3/envs/plastic-cpu/bin/python offline_entrance.py -i downloads/src/test/"$MODEL_PREFIX" -o downloads/dst/test_"$model_name" -s 1 --use_cpu)
+    (cd "$SDK_DP" && "$HOME"/miniconda3/envs/plastic-cpu/bin/python offline_entrance.py -i downloads/src/test/"$MODEL_PREFIX" -o downloads/dst/test_"$model_name" -s 1 -p all --use_cpu)
 fi
 rm -r "${SDK_DP}/downloads/dst/test_${model_name}/result_images"
 
