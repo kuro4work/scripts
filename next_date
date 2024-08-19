@@ -9,9 +9,9 @@ fi
 
 # 去掉前导零
 month=${current_date:0:2}
-month=${month#/0//}
+month=${month/#0/}
 day=${current_date:2:2}
-day=${day#/0//}
+day=${day/#0/}
 
 # 增加一天
 day=$((day + 1))
