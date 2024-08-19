@@ -7,7 +7,7 @@ fi
 readarray -t roots <<< "$(yq -r '.data.train_data.dataset.data_path.[].root' "$1")"
 readarray -t paths <<< "$(yq -r '.data.train_data.dataset.data_path.[].path' "$1")"
 num="${#roots[@]}"
-if [[ $num -gt 1 ]]; then
+if [[ $num -eq 1 ]]; then
     prefix="$num trainlist"
 else
     prefix="$num trainlists"
