@@ -1,15 +1,7 @@
 #! /bin/bash
 _start_container() {
     row=$(schedctl list | grep debug)
-    #schedctl create -f "$HOME"/.debug.json
-    schedctl create \
-        --name debug \
-        --image "devops-docker.pkg.coding.smoa.cloud/smore-xrack/ci-environment/smore_xrack:v0.4.1.0.cu113" \
-        --gpu 1 \
-        --cmd "sleep 2h" \
-        --arch ampere \
-        --ports 8888 \
-        --debug
+    schedctl create -f "$HOME"/.debug.json
     start=$(date +%s)
     while [[ $row != *"Running"* ]];do
         row=$(schedctl list | grep debug | awk -F'|' '{print $4}')
@@ -36,11 +28,11 @@ if [[ -n $row && $row != *"Running"* ]];then
     while [ "$(schedctl list | rg debug | wc -l)" -gt 0 ];do
         sleep 1
     done
-    _start_container "$row"
+    _start_container
 fi
 if [ -z "$row" ];then
     echo 'No debug container found, creating one...'
-    _start_container "$row"
+    _start_container
 fi
 
 port=$(sch describe debug | awk '/Ports/ {getline; print $NF}')
